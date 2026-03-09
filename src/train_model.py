@@ -4,7 +4,7 @@ import pandas as pd
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -17,21 +17,66 @@ NUM_FEATURES = ["tenure_months", "monthly_charges", "total_charges"]
 CAT_FEATURES = ["contract_type", "internet_service", "payment_method"]
 BOOL_FEATURES = ["paperless_billing"]
 
+COLUMN_RENAME = {
+    "tenure": "tenure_months",
+    "MonthlyCharges": "monthly_charges",
+    "TotalCharges": "total_charges",
+    "Contract": "contract_type",
+    "InternetService": "internet_service",
+    "PaymentMethod": "payment_method",
+    "PaperlessBilling": "paperless_billing",
+    "Churn": "churn",
+}
+
+# Normalize categoricals to match API schema (lowercase, hyphenated).
+CONTRACT_MAP = {
+    "Month-to-month": "month-to-month",
+    "One year": "one-year",
+    "Two year": "two-year",
+}
+INTERNET_MAP = {"DSL": "dsl", "Fiber optic": "fiber", "No": "none"}
+PAYMENT_MAP = {
+    "Electronic check": "electronic-check",
+    "Mailed check": "mailed-check",
+    "Bank transfer (automatic)": "bank-transfer",
+    "Credit card (automatic)": "credit-card",
+}
+
 def load_data() -> pd.DataFrame:
     path = DATA_DIR / "Telco-Customer-Churn.csv"
     df = pd.read_csv(path)
+
+    # Keep only columns we use; rename to expected names.
+    use_cols = list(COLUMN_RENAME)
+    df = df[use_cols].rename(columns=COLUMN_RENAME)
+
+    # TotalCharges can be string or empty; coerce to numeric, fill 0 for missing.
+    df["total_charges"] = pd.to_numeric(df["total_charges"], errors="coerce").fillna(0)
+
+    # Churn: "Yes"/"No" -> 1/0 (code was using .astype(int) which fails on Yes/No).
+    df["churn"] = (df["churn"].str.strip().str.lower() == "yes").astype(int)
+
+    # PaperlessBilling: "Yes"/"No" -> True/False.
+    df["paperless_billing"] = df["paperless_billing"].str.strip().str.lower() == "yes"
+
+    # Normalize categorical values to match API schema.
+    df["contract_type"] = df["contract_type"].str.strip().map(CONTRACT_MAP)
+    df["internet_service"] = df["internet_service"].str.strip().map(INTERNET_MAP)
+    df["payment_method"] = df["payment_method"].str.strip().map(PAYMENT_MAP)
+
     return df
 
 def build_pipeline() -> Pipeline:
     pre = ColumnTransformer(
         transformers=[
-            ("num", "passthrough", NUM_FEATURES),
+            ("num", StandardScaler(), NUM_FEATURES),
             ("bool", "passthrough", BOOL_FEATURES),
             ("cat", OneHotEncoder(handle_unknown="ignore"), CAT_FEATURES),
         ]
     )
 
-    clf = LogisticRegression(max_iter=200)
+    # class_weight="balanced" upsamples the minority class (churn) to raise recall.
+    clf = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
     pipe = Pipeline(steps=[("preprocess", pre), ("model", clf)])
     return pipe
 
@@ -40,7 +85,7 @@ def main() -> None:
 
     df = load_data()
     X = df.drop(columns=[TARGET_COL])
-    y = df[TARGET_COL].astype(int)
+    y = df[TARGET_COL]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, random_state=42, stratify=y if y.nunique() > 1 else None
