@@ -1,8 +1,8 @@
 # ml-inference-service (Churn Prediction)
 
-Python
-FastAPI
-Docker
+![Python](https://img.shields.io/badge/python-3.10+-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-green)
+![Docker](https://img.shields.io/badge/docker-containerized-blue)
 
 ml-inference-service is a production-style machine learning inference service that exposes a trained model through a REST API. The project demonstrates how a machine learning model can be trained, packaged, and served as a scalable backend service using modern engineering practices.
 
