@@ -60,13 +60,11 @@ Prediction Response (JSON)
 This repository demonstrates how to:
 
 - Train and serialize a machine learning model
+- Build a REST API for real-time model inference<br>
 
 Future improvements will include:
-
-- Build a REST API for real-time model inference
 - Containerize the application for consistent deployment
 - Structure an ML system in a maintainable and production-oriented way
-
 - CI/CD pipeline for automated builds and testing
 - AWS deployment (EC2 or container services)
 - Enhanced model evaluation and monitoring
@@ -96,14 +94,43 @@ ls -la models/
 cat models/metrics.json
 ```
 
+### 3) Run the API
+
+**Option A – same terminal (run server in background)**  
+Start the server in the background so you can keep using the terminal for curl:
+
+```bash
+uvicorn src.app:app --reload --port 8000 &
+```
+
+Then run curl in the same terminal. To stop the server later: `kill %1` (or `fg` then Ctrl+C). <br>
+
+**Option B – two terminals**  
+In one terminal run `uvicorn src.app:app --reload --port 8000` and leave it running; use the other for curl.
+
+Then open http://127.0.0.1:8000/docs for the interactive API docs. Use port **8000** (or any port ≥ 1024); ports below 1024 require root and will give "Permission denied".
+
+**Test with curl** (server must be running):
+
+```bash
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/predict -H "Content-Type: application/json" \
+  -d '{"tenure_months":12,"monthly_charges":70.5,"total_charges":846,"contract_type":"month-to-month","internet_service":"fiber","paperless_billing":true,"payment_method":"electronic-check"}'
+```
+
 ## Troubleshooting
 
-**- Model artifact not found**
-      * Run: python -m src.train_model
+  **Model artifact not found**  
+     * Run: `python -m src.train_model`
+
+  **curl: Failed to connect / Connection refused**  
+     * Start the API first in another terminal: `uvicorn src.app:app --reload --port 8000`, then run curl.
+
+  **Port already in use**
+     * Run API on 8001: uvicorn src.app:app --reload --port 8001 
 
 ## Roadmap
 
-Week 1: FastAPI service + Docker
-
+Week 1: Docker
 Week 2: AWS- deployment readiness
 Week 3: CI/CD automation
